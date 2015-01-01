@@ -42,10 +42,6 @@ exports.init=function(config, app)
 	});
 	$.use(function(req,res,next)
 	{
-        console.log('auth required: '+!req.isAuthenticated());
-        console.log(global.server.port);
-        console.log(req.socket.localPort);
-        
 	    if(req.url!='/api/login' && !req.isAuthenticated() && global.localServer.port!=req.socket.localPort)
 			passport.authenticate('windowslive', {scope:['wl.signin','wl.basic']})(req,res,next);
 		else
