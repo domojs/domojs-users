@@ -1,7 +1,7 @@
-var WindowsLiveStrategy=$('passport-windowslive').Strategy;
-var MacStrategy=$('passport-macaddress').Strategy;
+var WindowsLiveStrategy=require('passport-windowslive').Strategy;
+var MacStrategy=require('passport-macaddress').Strategy;
 
-var passport=$('passport');
+var passport=require('passport');
 
 passport.serializeUser(function(user,done){
 	done(null,user);
