@@ -20,16 +20,20 @@ module.exports={
     {
         if(login && !user)
         {
-            return $.db.get('users:extenalLogin:'+login, function(err, user)
+            //console.log('looking for '+login)
+            $.db.hget('users:externalLogin:'+login, 'login', function(err, user)
             {
+                //console.log('found '+user)
                 if(err)
-                {
                     callback(500, err);
-                }
-                else
+                else if(user)
                     module.exports.at(place, login, user, callback);
+                else
+                    callback(404);
             });
+            return;
         }
+        //console.log('setting '+user+' at '+place+' based on '+login);
         place=place || 'home';
         $.db.hget('user:'+user, 'place', function(err, oldPlace)
         {
@@ -42,10 +46,24 @@ module.exports={
             cmds.sadd('users:at:'+place, user).
                 hset('user:'+user, 'place', place).
                 exec(function(err, replies){
-                    if(!err)
-                        callback(200);
-                    else
+                    if(err)
                         callback(500, err);
+                    else
+                    {
+                        if(login)
+                        {
+                            $.db.hget('users:externalLogin:'+login, 'name', function(err, deviceName){
+                                $.io.emit(deviceName+':at:'+place, {user:user, place:place, device:deviceName});
+                                $.io.emit(user+':at:'+place, {user:user, place:place, device:deviceName});
+                                callback(200);
+                            });
+                        }
+                        else
+                        {
+                            $.io.emit(user+':at:'+place, {user:user, place:place});
+                            callback(200);
+                        }
+                    }
                 });
         })
     }

@@ -19,12 +19,27 @@ exports.init=function(config, app)
 		callbackURL: config.callbackURL
 	},
 	function(accessToken, refreshToekn, profile, done){
-	    console.log(profile);
-		done(null,profile);
+        $.db.get('users:externalLogin:'+profile, function(err, userId){
+            if(err)
+                done(err);
+            else
+                done(null, userId);
+        });
 	}));
 	passport.use(new MacStrategy(function(mac, done){
-	    console.log(mac);
-	    done(null,mac);
+        if(mac)
+            $.db.hget('users:externalLogin:'+mac, 'login', function(err, userId){
+                if(!userId)
+                    console.log(mac +' is unauthorized');
+                if(err)
+                    done(err);
+                else
+                    done(null, userId);
+            });
+        else
+        {
+            done(null,{name:'localhost'});
+        }
 	}));
 	$.use(passport.initialize());
 	$.use(passport.session());
