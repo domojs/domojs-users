@@ -19,15 +19,16 @@ exports.init=function(config, app)
 		callbackURL: config.callbackURL
 	},
 	function(accessToken, refreshToekn, profile, done){
-        $.db.get('users:externalLogin:'+profile, function(err, userId){
+	    console.log(arguments);
+        $.db.hget('users:externalLogin:'+profile.id, 'login', function(err, user){
             if(err)
                 done(err);
             else
-                done(null, userId);
+                done(null, profile);
         });
 	}));
 	passport.use(new MacStrategy(function(mac, done){
-        if(mac)
+	    if(mac)
             $.db.hget('users:externalLogin:'+mac, 'login', function(err, userId){
                 if(!userId)
                     console.log(mac +' is unauthorized');
@@ -57,9 +58,25 @@ exports.init=function(config, app)
 	});
 	$.use(function(req,res,next)
 	{
-	    if(req.url!='/api/login' && !req.isAuthenticated() && global.localServer.port!=req.socket.localPort)
-			passport.authenticate('windowslive', {scope:['wl.signin','wl.basic']})(req,res,next);
+	    if(!req.socket.remoteAddress.startsWith('192.168.') && req.socket.remoteAddress!='127.0.0.1')
+	    {
+    	    if(req.url!='/api/login' && !req.isAuthenticated())
+    	    {
+    		    console.log('windowslive')
+    			passport.authenticate('windowslive', {scope:['wl.signin','wl.basic']})(req,res,next);
+    	    }
+    	    else
+    	        next();
+	    }
 		else
-		    passport.authenticate('mac')(req,res,next);
+		{
+    	    if(req.url!='/api/login' && !req.isAuthenticated())
+    	    {
+    		    console.log('mac')
+		        passport.authenticate('mac')(req,res,next);
+    	    }
+			else
+			    next();
+		}
 	});
 };
