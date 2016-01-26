@@ -14,29 +14,57 @@ passport.deserializeUser(function(user,done){
 exports.init=function(config, app)
 {
 	passport.use(new WindowsLiveStrategy({
-		clientID: config.clientID,
-		clientSecret: config.clientSecret,
-		callbackURL: config.callbackURL
-	},
-	function(accessToken, refreshToekn, profile, done){
-	    console.log(arguments);
-        $.db.hget('users:externalLogin:'+profile.id, 'login', function(err, user){
-            if(err)
-                done(err);
-            else
-                done(null, profile);
-        });
-	}));
+            clientID: config.clientID,
+            clientSecret: config.clientSecret,
+            callbackURL: config.callbackURL
+        },
+        function(accessToken, refreshToekn, profile, done){
+            var db=$.db.another();
+            db.hget('users:externalLogin:'+profile.id, 'login', function(err, user){
+                if(err)
+                {
+                    db.quit();
+                    done(err);
+                }
+                else
+                {
+                    if(!user)
+                    {
+                        db.hmset('users:externalLogin:'+profile.id, {name:profile.displayName, provider:profile.provider}, function(err){
+                            db.quit();
+                            done(err);
+                        });
+                    }
+                    else
+                    {
+                        db.quit();
+                        done(null, user);
+                    }
+                }
+            });
+        }));
 	passport.use(new MacStrategy(function(mac, done){
-	    if(mac)
-            $.db.hget('users:externalLogin:'+mac, 'login', function(err, userId){
+        if(mac)
+        {
+            var db=$.db.another();
+            db.hget('users:externalLogin:'+mac, 'login', function(err, userId){
+                
                 if(!userId)
+                {
+                    db.hmset('users:externalLogin:'+mac, {provider:'mac'}, function(err){
+                            db.quit();
+                            done(err);
+                        });
                     console.log(mac +' is unauthorized');
+                }
+                else
+                    db.quit();
                 if(err)
                     done(err);
                 else
                     done(null, userId);
             });
+        }
         else
         {
             done(null,{name:'localhost'});
