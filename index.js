@@ -30,7 +30,11 @@ exports.init=function(config, app)
                 {
                     if(!user)
                     {
-                        db.hmset('users:externalLogin:'+profile.id, {name:profile.displayName, provider:profile.provider}, function(err){
+                        db
+                        .multi()
+                        .sadd('users:externalLogins', 'users:externalLogin:'+profile.id)
+                        .hmset('users:externalLogin:'+profile.id, {name:profile.displayName, provider:profile.provider})
+                        .exec(function(err){
                             db.quit();
                             done(err);
                         });

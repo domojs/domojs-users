@@ -11,17 +11,18 @@ module.exports={
         else
         {
             place=place || 'home';
+            //db.hget('user')
             db.smembers('users:at:'+place, function(err, users){
                 callback(users);
             });
         }
     },
-    whoami:function(db, callback){
+    whoami:function(db, user, callback){
         db.hgetall('user:'+this.request.user, function(err, user)
         {
             if(!user)
             {
-                db.hgetall('users:externalLogin:'+this.request.user)
+                db.hgetall('users:externalLogin:'+user)
             }
             callback(err || user);
         });
@@ -29,72 +30,131 @@ module.exports={
     link:function(db, id, callback)
     {
         var currentUser=this.request.user;
-        console.log('getting users:externalLogin:'+id);
-        db.hgetall('users:externalLogin:'+id, function(err, user)
+        //console.log('getting users:externalLogin:'+id);
+        if(!id)
         {
-            if(err)
-                callback(500, err);
-            else
-                db.hget('user:'+currentUser, 'name', function(){
-                    db.multi()
-                        .hset('user:'+currentUser, 'name', user.name)
-                        .hset('users:externalLogin:'+id, 'login', currentUser)
-                        .exec(function(err){
-                            callback(err);
-                        })
-                    
-                })
-        })
-    },
-    at:function(db, place, login, user, callback)
-    {
-        if(login && !user)
-        {
-            //console.log('looking for '+login)
-            db.hget('users:externalLogin:'+login, 'login', function(err, user)
+            db.keys('user:*:externalLogins', function(err, users)
             {
-                //console.log('found '+user)
                 if(err)
                     callback(500, err);
-                else if(user)
-                    module.exports.at(db, place, login, user, callback);
                 else
-                    callback(404);
+                {
+                    users.unshift('users:externalLogin');
+                    console.log(users);
+                    db.sdiff(users, function(err, devices){
+                        if(err)
+                            callback(500, err);
+                        else
+                            callback(200, devices);
+                    });
+                }
             });
-            return;
         }
-        //console.log('setting '+user+' at '+place+' based on '+login);
-        place=place || 'home';
-        db.hget('user:'+user, 'place', function(err, oldPlace)
+        else
+            db.hgetall('users:externalLogin:'+id, function(err, user)
+            {
+                if(err)
+                    callback(500, err);
+                else
+                    db.hget('user:'+currentUser, 'name', function(){
+                        db.multi()
+                            .sadd('user:'+currentUser+':externalLogins', id)
+                            .hset('users:externalLogin:'+id, 'login', currentUser)
+                            .exec(function(err){
+                                if(err)
+                                    callback(500, err);
+                                else
+                                    callback(200);
+                            });
+                        
+                    });
+            });
+    },
+    unlink:function(db, id, callback){
+        var currentUser=this.request.user;
+        console.log('getting users:externalLogin:'+id);
+        if(!id)
         {
-            if(err)
-                return callback(500, err);
-            var cmds=db.multi();
-            if(oldPlace)
-                cmds=cmds.srem('users:at:'+oldPlace, user);
-                
-            cmds.sadd('users:at:'+place, user).
-                hset('user:'+user, 'place', place).
-                exec(function(err, replies){
+            db.osort('user:'+currentUser+':externalLogins', ['id', 'name', 'login'], 'nosort', function(err, devices)
+            {
+                console.log(arguments);
+                if(err)
+                    callback(500, err);
+                else
+                    callback(200, devices);
+            });
+        }
+        else
+            db.hgetall('users:externalLogin:'+id, function(err, user)
+            {
+                if(err)
+                    callback(500, err);
+                else
+                    db.hget('user:'+currentUser, 'name', function(){
+                        db.multi()
+                            .srem('user:'+currentUser+':externalLogins', id)
+                            .hdel('users:externalLogin:'+id, 'login', currentUser)
+                            .exec(function(err){
+                                if(err)
+                                    callback(500, err);
+                                else
+                                    callback(200);
+                            })
+                        
+                    })
+            })
+    },
+    at:function(db, place, login, userLogin, callback)
+    {
+        db.select(0, function(){
+            if(login && !userLogin)
+            {
+                //console.log('looking for '+login)
+                db.hget('users:externalLogin:'+login, 'login', function(err, user)
+                {
                     if(err)
                         callback(500, err);
+                    else if(user)
+                        module.exports.at(db, place, login, user, callback);
                     else
-                    {
-                        if(login)
-                        {
-                            db.hget('users:externalLogin:'+login, 'name', function(err, deviceName){
-                                $.io.emit(deviceName+':at:'+place, {user:user, place:place, device:deviceName});
-                                $.io.emit(user+':at:'+place, {user:user, place:place, device:deviceName});
-                                callback(200);
-                            });
-                        }
+                        callback(404);
+                });
+                return;
+            }
+            //console.log('setting '+userLogin+' at '+place+' based on '+login);
+            place=place || 'home';
+            db.hget('user:'+userLogin, 'place', function(err, oldPlace)
+            {
+                if(err)
+                    return callback(500, err);
+                var cmds=db.multi();
+                //console.log('moving from '+oldPlace+' to '+place);
+                if(oldPlace)
+                    cmds=cmds.srem('users:at:'+oldPlace, userLogin);
+                    
+                cmds.sadd('users:at:'+place, userLogin).
+                    hset('user:'+userLogin, 'place', place).
+                    exec(function(err, replies){
+                        if(err)
+                            callback(500, err);
                         else
                         {
-                            $.io.emit(user+':at:'+place, {user:user, place:place});
-                            callback(200);
+                            if(login)
+                            {
+                                db.hget('users:externalLogin:'+login, 'name', function(err, deviceName){
+                                    $.io.emit(deviceName+':at:'+place, {user:userLogin, place:place, device:deviceName});
+                                    $.io.emit(userLogin+':at:'+place, {user:userLogin, place:place, device:deviceName});
+                                    callback(200);
+                                });
+                            }
+                            else
+                            {
+                                $.io.emit(userLogin+':at:'+place, {user:userLogin, place:place});
+                                callback(200);
+                            }
                         }
-                    }
-                });
+                    });
+            })
         })
     }
 };
