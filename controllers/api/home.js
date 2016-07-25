@@ -27,10 +27,10 @@ module.exports={
             callback(err || user);
         });
     },
-    link:function(db, id, callback)
+    link:function(db, id, user, callback)
     {
-        var currentUser=this.request.user;
-        //console.log('getting users:externalLogin:'+id);
+        var currentUser=user;
+        console.log('getting users:externalLogin:'+id);
         if(!id)
         {
             db.keys('user:*:externalLogins', function(err, users)
@@ -39,7 +39,7 @@ module.exports={
                     callback(500, err);
                 else
                 {
-                    users.unshift('users:externalLogin');
+                    users.unshift('users:externalLogins');
                     console.log(users);
                     db.sdiff(users, function(err, devices){
                         if(err)
@@ -51,7 +51,7 @@ module.exports={
             });
         }
         else
-            db.hgetall('users:externalLogin:'+id, function(err, user)
+            db.hgetall(id, function(err, user)
             {
                 if(err)
                     callback(500, err);
@@ -59,7 +59,7 @@ module.exports={
                     db.hget('user:'+currentUser, 'name', function(){
                         db.multi()
                             .sadd('user:'+currentUser+':externalLogins', id)
-                            .hset('users:externalLogin:'+id, 'login', currentUser)
+                            .hset(id, 'login', currentUser)
                             .exec(function(err){
                                 if(err)
                                     callback(500, err);
@@ -155,6 +155,33 @@ module.exports={
                         }
                     });
             })
+        })
+    },
+    add:function(db, id, body, callback)
+    {
+        db.select(0, function(){
+            db.multi()
+                .sadd('users', 'user:'+id)
+                .hset('user:'+id, 'name', body.name)
+                .exec(function(err){
+                    if(err)
+                        callback(500, err);
+                    else
+                        callback(204);
+                })
+        })
+    },
+    list:function(db, callback){
+        
+        db.select(0, function(){
+            db.osort('users', ['id', 'name'], 'name', function(err, users)
+            {
+                console.log(arguments);
+                if(err)
+                    callback(500, err);
+                else
+                    callback(200, users);
+            });
         })
     }
 };

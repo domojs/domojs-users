@@ -1,6 +1,6 @@
 var WindowsLiveStrategy=require('passport-windowslive').Strategy;
 var MacStrategy=require('passport-macaddress').Strategy;
-
+var debug=require('debug')('domojs:users');
 var passport=require('passport');
 
 passport.serializeUser(function(user,done){
@@ -48,18 +48,22 @@ exports.init=function(config, app)
             });
         }));
 	passport.use(new MacStrategy(function(mac, done){
-        if(mac)
+        if(mac&& mac.mac)
         {
             var db=$.db.another();
-            db.hget('users:externalLogin:'+mac, 'login', function(err, userId){
+            db.hget('users:externalLogin:'+mac.mac, 'login', function(err, userId){
                 
                 if(!userId)
                 {
-                    db.hmset('users:externalLogin:'+mac, {provider:'mac'}, function(err){
+                    db
+                        .multi()
+                        .sadd('users:externalLogins', 'users:externalLogin:'+mac.mac)
+                        .hmset('users:externalLogin:'+mac.mac, {provider:'mac', name:mac.name})
+                        .exec(function(err){
                             db.quit();
                             done(err);
                         });
-                    console.log(mac +' is unauthorized');
+                    debug('unauthorized', mac);
                 }
                 else
                     db.quit();
@@ -94,7 +98,7 @@ exports.init=function(config, app)
 	    {
     	    if(req.url!='/api/login' && !req.isAuthenticated())
     	    {
-    		    console.log('windowslive')
+    		    debug('windowslive')
     			passport.authenticate('windowslive', {scope:['wl.signin','wl.basic']})(req,res,next);
     	    }
     	    else
@@ -104,7 +108,7 @@ exports.init=function(config, app)
 		{
     	    if(req.url!='/api/login' && !req.isAuthenticated())
     	    {
-    		    console.log('mac')
+    		    debug('mac')
 		        passport.authenticate('mac')(req,res,next);
     	    }
 			else
