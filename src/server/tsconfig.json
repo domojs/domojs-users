@@ -1,0 +1,14 @@
+{
+    "compileOnSave": true,
+    "compilerOptions": {
+        "inlineSourceMap": true,
+        "experimentalDecorators": true,
+        "declaration": true,
+        "moduleResolution": "node",
+        "module": "commonjs"
+    },
+    "exclude": [
+        "dist",
+        "node_modules"
+    ]
+}

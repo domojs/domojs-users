@@ -1,0 +1,11 @@
+{
+  "globalDependencies": {
+    "debug": "registry:dt/debug#0.0.0+20160317120654",
+    "express": "registry:dt/express#4.0.0+20160708185218",
+    "jquery": "registry:dt/jquery#1.10.0+20160704162008",
+    "node": "registry:env/node#6.0.0+20160813135048",
+    "passport": "registry:dt/passport#0.2.0+20160720063208",
+    "redis": "registry:dt/redis#0.12.1+20160818110030"
+  },
+  "dependencies": {}
+}
