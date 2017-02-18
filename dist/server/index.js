@@ -1,5 +1,5 @@
 "use strict";
-var di = require("akala-corere");
+var di = require("akala-core");
 var passport = require("passport");
 var WindowsLiveStrategy = require('passport-windowslive').Strategy;
 var MacStrategy = require('passport-macaddress').Strategy;
